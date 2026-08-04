@@ -19,6 +19,14 @@ Changing any value here without retraining the model breaks predictions.
 
 import os
 
+# Numba cache location. librosa JIT-compiles its DSP kernels on first use
+# (expensive, ~1 min on fast CPUs and far longer on Render's 0.1 CPU free
+# tier). Compiling once during the Render build and pointing numba at the
+# same writable directory at runtime turns that boot-time compile into a
+# fast cache load. Must be set before the first librosa call, so do it
+# here at config import time.
+os.environ.setdefault("NUMBA_CACHE_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".numba_cache"))
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------

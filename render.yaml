@@ -4,7 +4,7 @@ services:
     runtime: python
     pythonVersion: 3.11.0
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && python -c "from backend import config; import numpy, librosa; librosa.feature.melspectrogram(y=numpy.zeros(22050, dtype=numpy.float32), sr=22050)"
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 1 --timeout 180 app:app
     healthCheckPath: /api/model-info
     envVars:
@@ -12,3 +12,5 @@ services:
         value: true
       - key: PYTHONWARNINGS
         value: ignore
+      - key: NUMBA_CACHE_DIR
+        value: /tmp/numba_cache

@@ -207,23 +207,25 @@ def get_classifier():
 
 def warm_up():
     """
-    Warm the service in the background so the port opens immediately.
+    Warm the model and the audio pipeline BEFORE serving traffic.
 
-    The slow parts (ONNX session load and librosa's first-call numba
-    JIT compilation) run on a daemon thread. Requests arriving before
-    warm-up finishes trigger a synchronous lazy load instead, so the
-    first prediction is simply slower rather than unavailable.
+    Runs synchronously at startup: loading the ONNX session and
+    compiling librosa's numba kernels (melspectrogram helpers) blocks
+    until finished. This is deliberate — numba serialises compilation
+    behind a global lock, so if any request arrived while the kernels
+    were still compiling it would stall until the compile finished and
+    gunicorn would time it out (180 s) and kill the worker.
+
+    With the compile done up front, every prediction after boot runs in
+    well under a second.
     """
-    def _do_warm_up():
-        try:
-            get_classifier()
-            warm_audio_pipeline()
-            log.info("Model + audio pipeline warmed up")
-        except ModelNotLoadedError:
-            # Startup should not crash when the model is missing; requests
-            # will return a clear error instead.
-            log.error("Model warm-up failed: model not loaded")
-        except Exception:
-            log.exception("Model warm-up failed")
-
-    threading.Thread(target=_do_warm_up, daemon=True).start()
+    try:
+        get_classifier()
+        warm_audio_pipeline()
+        log.info("Model + audio pipeline warmed up")
+    except ModelNotLoadedError:
+        # Startup should not crash when the model is missing; requests
+        # will return a clear error instead.
+        log.error("Model warm-up failed: model not loaded")
+    except Exception:
+        log.exception("Model warm-up failed")

@@ -11,6 +11,7 @@ venv/
 uploads/*.wav
 uploads/*.mp3
 static/
+.numba_cache/
 
 # Editors / OS
 .vscode/
