@@ -30,6 +30,11 @@ MODEL_DIR = os.path.join(BASE_DIR, "backend", "model")
 # Weights of the trained MobileNetV2 classifier.
 MODEL_PATH = os.path.join(MODEL_DIR, "best_model.keras")
 
+# Serving model: ONNX export of the same weights, run through ONNX
+# Runtime so TensorFlow never has to load in the web process (this is
+# what keeps the app inside Render's free-tier 512 MB limit).
+ONNX_MODEL_PATH = os.path.join(MODEL_DIR, "best_model.onnx")
+
 # Directory where uploaded audio files are temporarily stored.
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 
@@ -69,12 +74,17 @@ CLASS_NAMES = [
 INPUT_SHAPE = (N_MELS, 224, 1)  # (height, width, channels) — 224x224x1.
 
 MODEL_NAME = "MobileNetV2"
-MODEL_FRAMEWORK = "TensorFlow / Keras"
+MODEL_FRAMEWORK = "TensorFlow / Keras (ONNX Runtime)"
 MODEL_LEARNING = "Transfer Learning"
 MODEL_INPUT_TYPE = "Mel Spectrogram"
 
 # Reported by the notebook evaluation cell (Cell 17).
 TEST_ACCURACY = 85.78
+
+# Trainable parameter count of best_model.keras (2,621,027). Read once at
+# conversion time and reported on the dashboard without introspecting the
+# ONNX graph at runtime.
+MODEL_PARAMS = 2621027
 
 # ---------------------------------------------------------------------------
 # Upload validation

@@ -1,20 +1,30 @@
 """
 Prediction service.
 
-Loads the trained Keras model once at startup and exposes a single
+Loads the trained ONNX model once at startup and exposes a single
 method that turns a preprocessed tensor into a readable prediction.
 
-Because the model is heavy, it is instantiated a single time and reused
-for every request (module-level singleton).
+ONNX Runtime replaces TensorFlow/Keras at serving time. Keeping the
+heavy TF stack out of the web process is what makes the app fit inside
+Render's free tier (512 MB): the full process now sits around 150 MB
+instead of ~450 MB, and builds no longer pull the ~200 MB TF wheel.
+
+The model is instantiated a single time and reused for every request
+(module-level singleton, guarded by a lock so concurrent warm-up and
+first requests cannot create two sessions).
 """
 
+import logging
 import os
+import threading
 
 import numpy as np
-import tensorflow as tf
+import onnxruntime as ort
 
 from backend import config
-from backend.preprocessing import AudioLoadError, extract_features
+from backend.preprocessing import AudioLoadError, extract_features, warm_audio_pipeline
+
+log = logging.getLogger(__name__)
 
 
 class ModelNotLoadedError(Exception):
@@ -26,38 +36,43 @@ class PredictionError(Exception):
 
 
 class SoundClassifier:
-    """Thread-safe wrapper around the trained Keras model."""
+    """Thread-safe wrapper around the ONNX model."""
 
     def __init__(self, model_path=None):
         """
         Initialise the classifier and load the model.
 
         Args:
-            model_path (str, optional): Path to the .keras file. Defaults
-                to config.MODEL_PATH.
+            model_path (str, optional): Path to the .onnx file. Defaults
+                to config.ONNX_MODEL_PATH.
 
         Raises:
-            ModelNotLoadedError: When the file does not exist or Keras
-                cannot import it.
+            ModelNotLoadedError: When the file does not exist or ONNX
+                Runtime cannot load it.
         """
-        self.model_path = model_path or config.MODEL_PATH
-        self.model = self._load_model(self.model_path)
+        self.model_path = model_path or config.ONNX_MODEL_PATH
+        self.session = self._load_session(self.model_path)
+        self.input_name = self.session.get_inputs()[0].name
         self.class_names = config.CLASS_NAMES
 
     @staticmethod
-    def _load_model(model_path):
-        """Load a Keras model from disk with a descriptive error."""
+    def _load_session(model_path):
+        """Load an ONNX inference session with a descriptive error."""
         if not os.path.exists(model_path):
             raise ModelNotLoadedError(
                 "Model file not found. Expected: " f"{model_path}"
             )
         try:
-            return tf.keras.models.load_model(model_path)
+            return ort.InferenceSession(
+                model_path,
+                providers=["CPUExecutionProvider"],
+                sess_options=_session_options(),
+            )
         except Exception as exc:
             raise ModelNotLoadedError(
                 "The model file exists but could not be loaded. "
                 "It may be corrupted or incompatible with this "
-                "TensorFlow version."
+                "ONNX Runtime version."
             ) from exc
 
     def predict_file(self, path):
@@ -78,9 +93,9 @@ class SoundClassifier:
         try:
             features = extract_features(path)
             features = features[np.newaxis, ...]  # Add batch dimension.
-            predictions = self.model.predict(
-                features, verbose=0
-            ).flatten()
+            predictions = self.session.run(
+                None, {self.input_name: features}
+            )[0].flatten()
         except AudioLoadError:
             raise
         except Exception as exc:
@@ -115,11 +130,19 @@ class SoundClassifier:
         }
 
 
+def _session_options():
+    """Cap ONNX Runtime's CPU thread usage for small cloud instances."""
+    options = ort.SessionOptions()
+    options.intra_op_num_threads = 1
+    options.inter_op_num_threads = 1
+    return options
+
+
 def get_model_info():
     """
     Build a metadata payload for the "Model" dashboard.
 
-    Values are read live from the loaded Keras model (input shape, output
+    Values are read live from the loaded ONNX model (input shape, output
     classes) and from the preprocessing configuration, so the dashboard
     can never drift from the real pipeline.
 
@@ -135,9 +158,9 @@ def get_model_info():
 
     input_shape = config.INPUT_SHAPE
     if instance is not None:
-        model_shape = instance.model.inputs[0].shape
-        if len(model_shape) == 4:
-            input_shape = (model_shape[1], model_shape[2], model_shape[3])
+        onnx_shape = instance.session.get_inputs()[0].shape
+        if len(onnx_shape) == 4:
+            input_shape = (onnx_shape[1], onnx_shape[2], onnx_shape[3])
 
     return {
         "status": "ok",
@@ -153,44 +176,54 @@ def get_model_info():
         "classes": len(config.CLASS_NAMES),
         "class_names": config.CLASS_NAMES,
         "test_accuracy": config.TEST_ACCURACY,
-        "num_params": _model_params(instance),
+        "num_params": config.MODEL_PARAMS if instance is not None else None,
     }
-
-
-def _model_params(instance):
-    """Count trainable model parameters when the model is loaded."""
-    if instance is None:
-        return None
-    try:
-        return int(instance.model.count_params())
-    except Exception:
-        return None
 
 
 # ---------------------------------------------------------------------------
 # Module-level singleton so the model is loaded exactly once.
 # ---------------------------------------------------------------------------
 classifier = None
+_classifier_lock = threading.Lock()
 
 
 def get_classifier():
     """
     Lazily build and cache the global SoundClassifier instance.
 
+    Thread-safe: concurrent callers block on a lock so only one session
+    is ever created, even while the background warm-up is running.
+
     Returns:
         SoundClassifier: Shared instance reused by every request.
     """
     global classifier
     if classifier is None:
-        classifier = SoundClassifier()
+        with _classifier_lock:
+            if classifier is None:
+                classifier = SoundClassifier()
     return classifier
 
 
 def warm_up():
-    """Load the model eagerly on startup so the first request is fast."""
-    try:
-        get_classifier()
-    except ModelNotLoadedError:
-        # Startup should not crash when the model is missing; requests
-        # will return a clear error instead.
-        pass
+    """
+    Warm the service in the background so the port opens immediately.
+
+    The slow parts (ONNX session load and librosa's first-call numba
+    JIT compilation) run on a daemon thread. Requests arriving before
+    warm-up finishes trigger a synchronous lazy load instead, so the
+    first prediction is simply slower rather than unavailable.
+    """
+    def _do_warm_up():
+        try:
+            get_classifier()
+            warm_audio_pipeline()
+            log.info("Model + audio pipeline warmed up")
+        except ModelNotLoadedError:
+            # Startup should not crash when the model is missing; requests
+            # will return a clear error instead.
+            log.error("Model warm-up failed: model not loaded")
+        except Exception:
+            log.exception("Model warm-up failed")
+
+    threading.Thread(target=_do_warm_up, daemon=True).start()

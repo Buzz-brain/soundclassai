@@ -98,8 +98,9 @@ def create_app():
             500,
         )
 
-    # Pre-load the CNN so the first prediction is not slow.
-    log.info("Warming up CNN model from %s", config.MODEL_PATH)
+    # Pre-load the ONNX model so the first prediction is not slow. The
+    # librosa audio pipeline is warmed in the background by warm_up().
+    log.info("Warming up ONNX model from %s", config.ONNX_MODEL_PATH)
     warm_up()
     log.info("Model warm-up finished (loaded=%s)", get_classifier() is not None)
 

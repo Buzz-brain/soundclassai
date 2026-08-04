@@ -223,3 +223,17 @@ def extract_features(path):
 
     # Add the single grayscale channel: (224, 224) -> (224, 224, 1).
     return spectrogram[..., np.newaxis].astype(np.float32)
+
+
+def warm_audio_pipeline():
+    """
+    Pre-compile librosa's numba kernels at startup.
+
+    librosa JIT-compiles its DSP helpers (STFT, mel filterbank) lazily on
+    the FIRST call. Doing that during a live request — on top of the model
+    — previously spiked memory past Render's 512 MB free tier and the OS
+    OOM-killed the worker. Running one mel spectrogram here, before the
+    server takes traffic, moves that cost out of the request path.
+    """
+    silence = np.zeros(int(config.SAMPLE_RATE * 1.0), dtype=np.float32)
+    to_mel_spectrogram(silence)
