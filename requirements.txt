@@ -1,0 +1,18 @@
+# Runtime dependencies for the Environmental Sound Classification System.
+#
+# Install with:  pip install -r requirements.txt
+# (A virtual environment is strongly recommended.)
+#
+# Versions are pinned to match the local .venv (Python 3.11.9), so the
+# production build on Render resolves the exact same wheels.
+
+Flask==3.1.3
+tensorflow==2.21.0
+keras==3.15.1
+librosa==0.11.0
+numpy==2.4.6
+scipy==1.17.1
+soundfile==0.14.0
+soxr==1.1.0
+h5py==3.14.0
+gunicorn==23.0.0

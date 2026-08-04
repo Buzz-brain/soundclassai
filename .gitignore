@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Model weights are committed so the production server has them
+# (backend/model/best_model.keras ~14 MB).
+
+# Runtime artifacts
+uploads/*.wav
+uploads/*.mp3
+static/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
