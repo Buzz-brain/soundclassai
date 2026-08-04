@@ -1,200 +1,289 @@
 # Environmental Sound Classification System
 
-> AI-powered environmental sound recognition using **Convolutional Neural Networks** (MobileNetV2).
+> **An AI that listens to everyday sounds and tells you what it hears.**
 
-A complete, production-quality web application for an undergraduate Final Year Project. It classifies everyday environmental sounds — barking dogs, sirens, jackhammers, street music and more — from a short WAV recording.
+This web application uses artificial intelligence to recognise **five common
+environmental sounds** — a dog barking, a car horn, an engine idling, a siren,
+or street music — from any short audio recording.
 
-Built with a modular Flask REST API on the backend and a custom, responsive single-page interface on the frontend (no UI frameworks, no boilerplate).
-
----
-
-## Features
-
-- **Upload & classify** — drag-and-drop a WAV file and get a prediction with confidence.
-- **10 sound classes** — trained on the UrbanSound8K dataset.
-- **Live waveform** — visual placeholder generated from the uploaded file.
-- **Audio player** — replay the recording directly in the browser.
-- **Animated results** — circular confidence ring, animated probability bars and a natural-language explanation.
-- **Model pipeline visualisation** — audio → Mel spectrogram → MobileNetV2 → Dense → Softmax → prediction.
-- **Professional error handling** — unsupported format, file too large, audio too short, model not loaded, server failures.
-- **Accessible & responsive** — keyboard navigation, ARIA labels, semantic HTML, and mobile-first layout.
+You upload a sound file (WAV or MP3), and within seconds the app tells you
+which sound it detected, how confident the AI is, and a full breakdown of all
+five possibilities.
 
 ---
 
-## Tech stack
+## Try it now
 
-| Layer    | Technology                          |
-|----------|-------------------------------------|
-| Frontend | HTML5, CSS3, Vanilla JavaScript (ES6) |
-| Backend  | Python, Flask                       |
-| AI       | TensorFlow / Keras, librosa, NumPy  |
+**Live demo: https://soundclassai.onrender.com**
+
+Just open the link, drop in an audio file, and watch the AI do its work.
+
+> Tip: The first visit after a period of inactivity can take about a minute to
+> wake the server up. After that, results come back in a couple of seconds.
 
 ---
 
-## Folder structure
+## What does this app do?
+
+Put simply: **it listens.** Many computer programs can understand written words
+and spoken language, but very few can make sense of the *noise of the world
+around us* — the sound of a siren in traffic, a dog barking in the distance, or
+music drifting out of a street shop.
+
+This system was trained to recognise five of the most common everyday sounds:
+
+| Sound | What it sounds like |
+|-------|---------------------|
+| **Car Horn** | A vehicle horn beeping |
+| **Dog Bark** | A dog barking or yapping |
+| **Engine Idling** | A car or motorcycle engine running while parked |
+| **Siren** | An ambulance, police car, or emergency siren |
+| **Street Music** | Music playing in a public space |
+
+Each time you upload a recording, the app answers two questions:
+
+1. **Which of the five sounds is this?**
+2. **How sure is the AI?** (a percentage, from 0% to 100%)
+
+---
+
+## Key features
+
+- **Simple to use** — a drag-and-drop upload box. No accounts, no settings,
+  no technical knowledge required.
+- **Works with WAV and MP3** — the two most common audio formats.
+- **Fast results** — a clear answer in seconds, with a confidence score.
+- **Full sound breakdown** — see how the AI weighed all five sounds, not just
+  the winner.
+- **Audio preview** — play back your recording right in the page.
+- **Waveform view** — a visual picture of the sound you uploaded.
+- **Animated results** — a confidence ring and probability bars that make the
+  answer easy to read at a glance.
+- **Friendly explanations** — the app describes what it heard in plain
+  language.
+- **Model dashboard** — a behind-the-scenes panel showing how the AI model was
+  built and how well it was tested.
+- **Works on any device** — phone, tablet, or computer.
+- **Clear error messages** — if a file can't be read or is too short, the app
+  says so politely instead of failing silently.
+
+---
+
+## How it works
+
+### For you, the user
+
+1. **Upload** a sound file — drag it into the box or click to browse.
+2. **The AI listens** — the first four seconds of the audio are analysed.
+3. **See the result** — the app names the sound it heard and how confident it
+   is, with a visual breakdown of all five options.
+
+### The science (in simple terms)
+
+Behind the scenes, the sound is translated into a special visual picture
+called a **Mel Spectrogram** — a chart that shows the different frequencies in
+the sound over time. Human ears work in a similar way: different pitches and
+rhythms create different patterns.
 
 ```
-environmental-sound-classifier/
-│
-├── app.py                       # Flask entry point (application factory)
-├── requirements.txt
-├── README.md
-├── create_dummy_model.py        # Generates a placeholder model (optional)
-│
-├── backend/
-│   ├── __init__.py
-│   ├── config.py                # Centralised configuration
-│   ├── utils.py                 # File helpers & validation
-│   ├── preprocessing.py         # Audio → Mel spectrogram → tensor pipeline
-│   ├── predictor.py             # Model loading + inference service
-│   ├── routes.py                # REST API blueprint
-│   └── model/
-│       └── best_model.keras     # Trained model (see below)
-│
-├── frontend/
-│   ├── index.html
-│   ├── css/
-│   │   ├── style.css            # Design tokens, layout, components
-│   │   ├── animations.css       # Keyframes & motion
-│   │   └── responsive.css       # Tablet & mobile breakpoints
-│   ├── js/
-│   │   ├── ui.js                # Navigation, reveal, toast, ripple, data
-│   │   ├── upload.js            # Dropzone, waveform, file metadata
-│   │   ├── prediction.js        # API call, loading state, results
-│   │   └── app.js               # Bootstrap + static content rendering
-│   └── assets/
-│       ├── icons/
-│       └── images/
-│
-├── uploads/                     # Temporary storage for uploads
-└── static/                      # Flask static folder (kept empty)
+Your audio  →  Sound picture (Mel Spectrogram)  →  AI model (MobileNetV2)  →  Five scores  →  Answer + confidence
 ```
+
+The AI model, called **MobileNetV2**, was taught using a well-known public
+dataset of real-world sounds (**UrbanSound8K**). It learned to spot the subtle
+differences between, say, a siren and street music by studying thousands of
+labelled examples. This approach — taking a powerful, pre-trained network and
+teaching it a new, specialised task — is called **transfer learning**, and it
+is the same technique behind many modern AI products.
 
 ---
 
-## Installation
+## How well does it work?
 
-### 1. Create a virtual environment
+On a held-out set of recordings the model had never seen before, it identified
+the correct sound **85.78% of the time** — well above the 20% you would expect
+from random guessing across five options.
+
+The model was also reviewed using professional machine-learning visualisations:
+
+- **Training accuracy curve** — how accuracy improved during training:
+
+  ![Training accuracy curve](frontend/assets/images/training_accuracy_curve.png)
+
+- **Training loss curve** — how the model's mistakes shrank over time:
+
+  ![Training loss curve](frontend/assets/images/training_loss_curve.png)
+
+- **Confusion matrix** — a grid showing exactly which sounds the model
+  sometimes mixes up (for example, how often it mistakes street music for a
+  siren):
+
+  ![Confusion matrix](frontend/assets/images/confusion_matrix.png)
+
+---
+
+## What's under the hood
+
+The system is deliberately built with a clean separation between the "brain"
+and the "face":
+
+| Layer | What it does | Technology |
+|-------|--------------|------------|
+| **The Face (Frontend)** | Everything you see and click in the browser | HTML, CSS, JavaScript |
+| **The Brain (Backend)** | Receives your file, analyses it, and returns the answer | Python + Flask |
+| **The AI Model** | Does the actual listening and classification | MobileNetV2 (CNN), ONNX Runtime |
+| **Audio Analysis** | Turns sound into the picture the AI understands | Librosa |
+
+The trained model is stored in an optimised, lightweight format (ONNX) that
+keeps the app fast and cheap to run online.
+
+---
+
+## Project details
+
+- **Project title:** Environmental Sound Classification System Using
+  Convolutional Neural Network (CNN)
+- **Department:** Computer Science
+- **Student:** (Student Name)
+- **Supervisor:** (Supervisor Name)
+
+---
+
+## For developers
+
+> The sections below are for anyone who wants to run or extend the project
+> themselves. End users do not need any of this.
+
+### Repository
+
+- **Source code:** https://github.com/Buzz-brain/soundclassai
+- **Live deployment:** https://soundclassai.onrender.com
+
+### Local setup
 
 ```bash
+# 1. Create a virtual environment
 python -m venv .venv
-```
 
-Activate it:
+# 2. Activate it
+#    Windows (PowerShell): .venv\Scripts\Activate.ps1
+#    macOS / Linux:        source .venv/bin/activate
 
-- **Windows (PowerShell):** `.venv\Scripts\Activate.ps1`
-- **macOS / Linux:** `source .venv/bin/activate`
-
-### 2. Install requirements
-
-```bash
+# 3. Install dependencies
 pip install -r requirements.txt
-```
 
-> TensorFlow is a large download. On GPU-less machines the CPU build is used automatically.
-
-### 3. Provide a trained model
-
-The application loads the classifier from `backend/model/best_model.keras`.
-
-- **Trained model:** drop your trained MobileNetV2 model there and make sure the class order matches `CLASS_NAMES` in `backend/config.py`.
-- **No model yet?** Generate a random-weight placeholder so the app runs end-to-end:
-
-```bash
-python create_dummy_model.py
-```
-
-Predictions from the placeholder are random — retrain and replace the file for real results.
-
----
-
-## Running the application
-
-```bash
+# 4. Run the app
 python app.py
 ```
 
 Open <http://127.0.0.1:5000> in your browser.
 
-The server listens on `0.0.0.0:5000`, so it is also reachable from other devices on the same network — useful for live demos.
+### Requirements
 
----
+- Python 3.11+
+- `requirements.txt` — pinned dependencies (Flask, librosa, numpy, scipy,
+  soundfile, soxr, onnxruntime, gunicorn).
+- TensorFlow / Keras is **not** required at runtime. The web process serves
+  the model through ONNX Runtime only, which keeps the deployment small and
+  fast. The Keras model can be re-exported to ONNX with
+  `tools/convert_to_onnx.py`.
 
-## REST API
-
-### `POST /api/predict`
-
-Classify an uploaded audio file.
-
-**Request** — `multipart/form-data` with the field `audio`:
+### Project structure
 
 ```
-curl -X POST http://127.0.0.1:5000/api/predict \
+soundclassifier/
+│
+├── app.py                       # Flask entry point (application factory)
+├── requirements.txt             # Pinned Python dependencies
+├── render.yaml                  # Render (cloud) deployment configuration
+├── Procfile                     # Gunicorn start command
+├── create_dummy_model.py        # Optional: generates a placeholder model
+│
+├── backend/
+│   ├── config.py                # Centralised configuration
+│   ├── routes.py                # REST API blueprint
+│   ├── utils.py                 # File helpers & validation
+│   ├── preprocessing.py         # Audio → Mel spectrogram pipeline
+│   ├── predictor.py             # ONNX model loading + inference service
+│   └── model/
+│       └── best_model.onnx      # Trained model (ONNX export)
+│
+├── frontend/
+│   ├── index.html               # Single-page interface
+│   ├── css/                     # Styles, animations, responsive layout
+│   ├── js/                      # UI, upload, prediction, app bootstrap
+│   └── assets/images/           # Training charts used in this README
+│
+├── tools/
+│   └── convert_to_onnx.py       # Keras → ONNX export helper
+│
+└── uploads/                     # Temporary storage for uploads
+```
+
+### REST API
+
+#### `POST /api/predict`
+
+Classify an uploaded audio file. Expects `multipart/form-data` with the field
+`audio` (WAV or MP3, max 16 MB, min 0.5 s):
+
+```
+curl -X POST https://soundclassai.onrender.com/api/predict \
      -F "audio=@/path/to/dog_bark.wav"
 ```
 
-**Success response (200):**
+Success response (200):
 
 ```json
 {
   "status": "success",
   "prediction": "Dog Bark",
-  "confidence": 95.47,
-  "latency_ms": 312.4,
+  "confidence": 99.54,
+  "latency_ms": 1407.71,
   "probabilities": [
-    { "class": "Dog Bark", "probability": 95.47 },
-    { "class": "Children Playing", "probability": 1.83 },
-    { "class": "Street Music", "probability": 1.01 }
+    { "class": "Dog Bark", "probability": 99.54 },
+    { "class": "Street Music", "probability": 0.18 },
+    { "class": "Car Horn", "probability": 0.14 }
   ],
   "top_probabilities": [
-    { "class": "Dog Bark", "probability": 95.47 },
-    { "class": "Children Playing", "probability": 1.83 }
+    { "class": "Dog Bark", "probability": 99.54 },
+    { "class": "Street Music", "probability": 0.18 }
   ]
 }
 ```
 
-**Error responses (4xx/5xx):**
+Error codes:
 
-| Code          | Status | Meaning                                    |
-|---------------|--------|--------------------------------------------|
-| `NO_FILE`     | 400    | No `audio` field in the request            |
-| `BAD_TYPE`    | 400    | Extension is not `.wav`                    |
-| `TOO_SHORT`   | 400    | Audio is shorter than 0.5 seconds          |
-| `DECODE`      | 400    | File could not be decoded                 |
-| `TOO_LARGE`   | 413    | Upload exceeds 16 MB                      |
-| `MODEL`       | 503    | Model file missing / unreadable           |
-| `PREDICTION`  | 500    | Inference failed on a valid file          |
+| Code         | Status | Meaning                                |
+|--------------|--------|----------------------------------------|
+| `NO_FILE`    | 400    | No `audio` field in the request        |
+| `BAD_TYPE`   | 400    | Not a `.wav` or `.mp3` file            |
+| `TOO_SHORT`  | 400    | Audio is shorter than 0.5 seconds      |
+| `DECODE`     | 400    | File could not be decoded              |
+| `TOO_LARGE`  | 413    | Upload exceeds 16 MB                   |
+| `MODEL`      | 503    | Model file missing or unreadable       |
+| `PREDICTION` | 500    | Inference failed on a valid file       |
 
-### `GET /api/health`
+#### `GET /api/model-info`
 
-Health check returning model readiness and supported classes:
+Live model and pipeline metadata (architecture, classes, accuracy, input
+details).
 
-```json
-{ "status": "ok", "model_loaded": true, "classes": ["Air Conditioner", "..."] }
-```
+#### `GET /api/health`
 
----
+Service health check and model readiness.
 
-## How classification works
+### Deployment notes
 
-1. The uploaded WAV is decoded with `librosa` and resampled to 22.05 kHz.
-2. The waveform is centered to a fixed **4-second window** (padded or cropped).
-3. A **Mel spectrogram** with 128 frequency bins is computed (`n_fft=2048`, `hop=512`).
-4. The spectrogram is resized to **128 × 128** and normalised to **[0, 1]**.
-5. A pre-trained **MobileNetV2** backbone extracts features; a dense + softmax head outputs a probability per class.
-6. The top class, confidence and full distribution are returned as JSON.
-
----
-
-## Project documentation
-
-- **Project title:** Environmental Sound Classification System Using Convolutional Neural Network (CNN)
-- **Department:** Computer Science
-- **Student:** (Your Name)
-- **Supervisor:** (Supervisor Name)
+- Hosted on **Render** (free tier) and kept awake by a scheduled cron job that
+  pings `/api/model-info` every 10 minutes.
+- The Render build pre-compiles librosa's audio kernels so the app boots fast
+  on the free 0.1-CPU instance; synchronous model warm-up at startup guarantees
+  the first request is never slow.
 
 ---
 
 ## License
 
-For academic and educational use. All third-party libraries retain their respective licenses.
+For academic and educational use. All third-party libraries retain their
+respective licenses.
